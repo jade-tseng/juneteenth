@@ -34,7 +34,8 @@ class SignPipeline:
         if not result.matched_any:
             # zero matches -> 422 (partial matches still blend what resolved)
             raise UnmatchedError(result.unmatched)
-        seq = concatenate(result.clips, transition_frames=self._transition_frames)
-        # carry the original English + any unmatched tokens for the client/UI
-        seq.meta.source_gloss = gloss_seq.gloss
-        return seq
+        # concatenate sets meta.source_gloss / clip_ids / clip_frame_spans all
+        # aligned 1:1 with the matched clips — leave them intact (don't overwrite
+        # source_gloss with the raw tokens, which include fs:/synonym/unmatched
+        # forms that wouldn't line up with clip_frame_spans for caption sync).
+        return concatenate(result.clips, transition_frames=self._transition_frames)

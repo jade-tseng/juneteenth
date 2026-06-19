@@ -33,6 +33,12 @@ export interface SMPLXFrame {
 export interface SMPLXSequenceMeta {
   source_gloss?: string[];
   clip_ids?: string[];
+  /**
+   * [start, end) frame indices of each clip's own frames within the blended
+   * sequence (excludes inserted transition/rest-hold frames), aligned 1:1 with
+   * clip_ids / source_gloss. Use for per-word caption sync.
+   */
+  clip_frame_spans?: [number, number][];
 }
 
 /** §3.1 */

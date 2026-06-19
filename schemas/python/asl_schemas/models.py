@@ -46,9 +46,18 @@ class SMPLXFrame(_Frozen):
     transl: Vec3 = Field(default_factory=lambda: [0.0, 0.0, 0.0])
 
 
+# [start, end) frame indices of one clip's own frames within the blended
+# sequence (excludes inserted transition/rest-hold frames). Enables per-word
+# caption sync in the player instead of revealing words evenly.
+FrameSpan = Annotated[list[int], Field(min_length=2, max_length=2)]
+
+
 class SMPLXSequenceMeta(_Frozen):
     source_gloss: Optional[list[str]] = None
     clip_ids: Optional[list[str]] = None
+    # Aligned 1:1 with clip_ids / source_gloss: clip i occupies frames
+    # [clip_frame_spans[i][0], clip_frame_spans[i][1]) of `frames`.
+    clip_frame_spans: Optional[list[FrameSpan]] = None
 
 
 class SMPLXSequence(_Frozen):
