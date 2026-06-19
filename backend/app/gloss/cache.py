@@ -12,6 +12,12 @@ import re
 
 # english (verified gloss) — straight from the §5 table, spot-checked.
 DEMO_GLOSS: dict[str, list[str]] = {
+    # REAL SignAvatars clips currently in GCS are the WLASL "a"-word shard, so
+    # these lines sign with genuine extracted ASL motion today.
+    "asl is amazing": ["ASL", "AMAZING"],
+    "ask again": ["ASK", "AGAIN"],
+    "always agree": ["ALWAYS", "AGREE"],
+    "i appreciate art": ["APPRECIATE", "ART"],
     # v1 words-only demo script (no fingerspelling) — every gloss has a real
     # WLASL clip, so the avatar signs recognizably. This is the demo we run now.
     "hello": ["HELLO"],
