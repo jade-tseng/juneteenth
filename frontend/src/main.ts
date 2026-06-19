@@ -83,25 +83,9 @@ stage.start((dt) => {
   player.update(dt);
 });
 
-// ── text input: the primary trigger (POST /api/sign) ───────────────────────
-const textForm = document.getElementById("textform") as HTMLFormElement | null;
-const textInput = document.getElementById("textinput") as HTMLInputElement | null;
-textForm?.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const text = (textInput?.value ?? "").trim();
-  if (!text) return;
-  requestSigningText(text);
-});
-
-// Example phrases (backed by real SignAvatars ASL clips) — tap to fill + sign.
-document.querySelectorAll<HTMLButtonElement>("#examples .chip").forEach((chip) => {
-  chip.addEventListener("click", () => {
-    const text = (chip.textContent ?? "").trim();
-    if (!text) return;
-    if (textInput) textInput.value = text;
-    requestSigningText(text);
-  });
-});
+// Voice is the only input — the mic (Vapi STT) drives everything; there is no
+// typed-text or example-chip UI. Unrecognized speech still signs a default
+// (see DEFAULT_PHRASE in requestSigningText).
 
 // ── state machine (§10) ──────────────────────────────────────────────────
 function setState(next: State) {
@@ -201,7 +185,10 @@ function requestSigning() {
 // dev). 200 → render the returned SMPLXSequence on the SMPL-X mesh; 422 →
 // unmatched-vocabulary UI; network/other errors → generic error copy. If the
 // SMPL-X mesh hasn't loaded yet, fall back to the cached gesture demo.
-async function requestSigningText(text: string) {
+// Default sign played when speech isn't recognized — there's always output.
+const DEFAULT_PHRASE = "ASL is amazing";
+
+async function requestSigningText(text: string, isFallback = false) {
   lastText = text;
   lastSentences = [];
   setState("processing");
@@ -212,7 +199,10 @@ async function requestSigningText(text: string) {
       body: JSON.stringify({ text }),
     });
     if (res.status === 422) {
-      showUnmatched();
+      // Unrecognized words → fall back to the default sign so the avatar always
+      // signs *something*. Guard against recursion if the default itself fails.
+      if (!isFallback) requestSigningText(DEFAULT_PHRASE, true);
+      else showError();
       return;
     }
     if (!res.ok) {
