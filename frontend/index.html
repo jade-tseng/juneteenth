@@ -25,27 +25,7 @@
       <!-- The signature: the caption that breathes. -->
       <section id="caption" aria-live="polite" aria-atomic="false"></section>
 
-      <!-- Typed-text input — the primary trigger (no Vapi creds in this build).
-           Type a phrase, Enter or Sign sends it to POST /api/sign. -->
-      <form id="textform" class="glass textform" autocomplete="off">
-        <input
-          id="textinput"
-          class="textinput"
-          type="text"
-          name="phrase"
-          placeholder="Try: ASL is amazing"
-          aria-label="Phrase to sign"
-        />
-        <button id="textsend" class="textsend" type="submit">Sign</button>
-      </form>
-
-      <!-- Example phrases backed by real extracted ASL clips (tap to sign). -->
-      <div id="examples" class="examples" aria-label="Example phrases">
-        <button class="chip" type="button">ASL is amazing</button>
-        <button class="chip" type="button">ask again</button>
-        <button class="chip" type="button">always agree</button>
-        <button class="chip" type="button">I appreciate art</button>
-      </div>
+      <!-- Voice-only: the mic is the single input. Speech → POST /api/sign. -->
 
       <!-- Bottom-center glass control bar. -->
       <div id="dock" class="glass" role="group" aria-label="Playback controls">

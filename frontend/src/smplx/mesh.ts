@@ -49,10 +49,16 @@ export class SMPLXMesh {
     this.mesh.receiveShadow = false;
     this.mesh.frustumCulled = false; // we rewrite positions every frame
 
-    // Orient/scale into the stage's framed signing zone. SMPL-X neutral is
-    // ~1.7m tall, Y-up, facing +Z toward the camera — close to what the stage
-    // camera (looking at y≈1.32) expects, so only a small lift is needed.
     this.root.add(this.mesh);
+
+    // SMPL-X is pelvis-centered (feet at ~y=-1.1); the stage camera expects a
+    // figure standing on the floor (feet at y=0, looking at y≈1.32). Lift the
+    // rest mesh so its lowest point sits on the ground. Computed once from the
+    // rest pose so the avatar doesn't bob frame-to-frame. (Clips are exported
+    // with global_orient zeroed → canonical upright, facing the +Z camera.)
+    this.geometry.computeBoundingBox();
+    const minY = this.geometry.boundingBox?.min.y ?? 0;
+    this.root.position.y = -minY;
   }
 
   /** Bind the sequence's constant betas before playback (shape is per-seq). */

@@ -39,6 +39,7 @@ export class SignPlayer {
   private mesh: SMPLXMesh | null = null;
   private seq: SMPLXSequence | null = null;
   private spanRevealed = -1; // last caption word index revealed in smplx mode
+  private captionWords: string[] = []; // the user's spoken words shown as caption
 
   constructor(private avatar: Avatar, private caption: Caption) {}
 
@@ -98,7 +99,12 @@ export class SignPlayer {
    * during its clip's [start,end) span) when present, evenly otherwise (§14).
    * Falls back to no-op if the mesh has not loaded.
    */
-  playSMPLX(seq: SMPLXSequence, speed: number, onEnd?: () => void) {
+  playSMPLX(
+    seq: SMPLXSequence,
+    speed: number,
+    captionText: string,
+    onEnd?: () => void
+  ) {
     if (!this.mesh || !seq.frames.length) {
       onEnd?.();
       return;
@@ -114,8 +120,11 @@ export class SignPlayer {
 
     this.mesh.bindBetas(seq.betas ?? []);
 
-    // lay out the caption: one word per played clip (meta.source_gloss), dimmed
-    const words = seq.meta?.source_gloss ?? [];
+    // The caption shows the user's spoken words — NOT the gloss/default. When the
+    // word count happens to match the clips, words light per clip span; otherwise
+    // they reveal evenly across the sequence (revealSpansUpTo).
+    const words = captionText.trim() ? captionText.trim().split(/\s+/) : [];
+    this.captionWords = words;
     if (words.length) {
       this.caption.sentence(words.join(" "), words);
     } else {
@@ -174,7 +183,7 @@ export class SignPlayer {
   /** Reveal each caption word whose clip span has started by `frame` (§14). */
   private revealSpansUpTo(frame: number) {
     const spans = this.seq?.meta?.clip_frame_spans;
-    const words = this.seq?.meta?.source_gloss ?? [];
+    const words = this.captionWords;
     if (!words.length) return;
     if (spans && spans.length === words.length) {
       // light each word once its clip's [start,end) span has begun

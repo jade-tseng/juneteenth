@@ -56,3 +56,20 @@ def test_local_store_roundtrip(tmp_path):
     lookup = DictionaryLookup.from_store(LocalClipStore(tmp_path))
     res = lookup.resolve(GlossSequence(english="hello", gloss=["HELLO", "fs:J"]))
     assert [c.gloss for c in res.clips] == ["HELLO", "J"]
+
+
+def test_exclude_placeholder_clips(monkeypatch):
+    """EXCLUDE_PLACEHOLDER_CLIPS=1 → only real-extractor clips are matched."""
+    from asl_schemas import SMPLXClipSource
+
+    real = clip("ASL"); real.source = SMPLXClipSource(extractor="SignAvatars-WLASL")
+    fake = clip("HELLO"); fake.source = SMPLXClipSource(extractor="stub")
+
+    monkeypatch.setenv("EXCLUDE_PLACEHOLDER_CLIPS", "1")
+    lk = DictionaryLookup([real, fake])
+    assert lk.resolve(GlossSequence(english="x", gloss=["ASL"])).matched_any
+    assert not lk.resolve(GlossSequence(english="x", gloss=["HELLO"])).matched_any
+
+    monkeypatch.delenv("EXCLUDE_PLACEHOLDER_CLIPS")
+    lk2 = DictionaryLookup([real, fake])  # default keeps placeholders
+    assert lk2.resolve(GlossSequence(english="x", gloss=["HELLO"])).matched_any
