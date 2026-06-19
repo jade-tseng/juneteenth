@@ -79,8 +79,56 @@ from app.blend import concatenate
 seq = concatenate(res.clips, transition_frames=6)   # one SMPLXSequence
 ```
 
+## API — `POST /api/sign` (`app/main.py`)
+FastAPI app wiring W2→W3→W4. The dictionary loads once at startup from the
+configured clip store (`CLIP_SOURCE`, see Configuration).
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/sign` | `{ "text": "..." }` → `SMPLXSequence` (200) or `{ error, unmatched }` (422 on zero matches, §3.5) |
+| `POST /api/ingest` | Vapi transcript webhook (§3.4) → same pipeline |
+| `GET /healthz` | liveness |
+
+### Clip source (`CLIP_SOURCE`)
+| Value | Behavior |
+|---|---|
+| `stub` (default) | Synthetic §5 seed clips written to a temp dir, read via `LocalClipStore`. Lets the API run before W6. |
+| `local` | `LocalClipStore($LOCAL_DICTIONARY_DIR)` |
+| `gcs` | `GCSClipStore($DICTIONARY_BUCKET)` — production (real W6 clips) |
+
+> ⚠️ With `CLIP_SOURCE=stub` the poses are **synthetic placeholders** (a small
+> per-gloss joint wiggle), not real ASL — they exercise lookup + blend and render
+> *something*. Real signing needs W6's clips in the GCS `dictionary` bucket.
+
+### Run locally
+```sh
+cd backend && python -m pip install -e ../schemas/python && python -m pip install -e ".[dev]"
+uvicorn app.main:app --reload --port 8080            # CLIP_SOURCE=stub by default
+curl -s localhost:8080/api/sign -H 'content-type: application/json' \
+  -d '{"text":"How are you doing today?"}' | python -m json.tool | head
+```
+
+### Deploy to Cloud Run
+Build from the **repo root** (the image needs the `schemas` package in context):
+```sh
+REGION=us-central1; PROJECT=buildday-499318
+IMAGE=$REGION-docker.pkg.dev/$PROJECT/signing-avatar/api:latest
+docker build -f backend/Dockerfile -t "$IMAGE" .   # run from repo root
+docker push "$IMAGE"
+
+gcloud run deploy signing-api --image="$IMAGE" --project=$PROJECT --region=$REGION \
+  --service-account=signing-runtime@$PROJECT.iam.gserviceaccount.com \
+  --set-env-vars=CLIP_SOURCE=gcs,DICTIONARY_BUCKET=$PROJECT-dictionary \
+  --set-secrets=NEBIUS_API_KEY=NEBIUS_API_KEY:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,VAPI_API_KEY=VAPI_API_KEY:latest \
+  --allow-unauthenticated
+```
+The `signing-runtime` SA already has `secretAccessor` on the three secrets and
+`objectViewer` on the dictionary bucket (see `/infra`).
+
 ## Status / next
 - ✅ **W2** gloss step — cache + Nebius + Claude + passthrough, verified live
 - ✅ **W3** dictionary lookup — local + GCS clip stores, synonyms, unmatched
 - ✅ **W4** concatenate + slerp blend — per-joint quaternion slerp, resample, rest-hold
-- ⬜ **API** `POST /api/sign` wiring W2→W3→W4 on Cloud Run (needs W6 clips in GCS for real output)
+- ✅ **API** `POST /api/sign` (+ `/api/ingest`) wiring W2→W3→W4; runs on stub clips, Dockerfile + Cloud Run deploy documented
+- ⬜ Deploy to Cloud Run with `CLIP_SOURCE=gcs` once W6 clips land in the `dictionary` bucket
+- ⬜ **W1** Vapi assistant → `/api/ingest` end-to-end
