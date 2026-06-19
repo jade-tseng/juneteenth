@@ -39,6 +39,21 @@ def test_sign_returns_valid_sequence(client):
     # a frame conforms to §3.1 dims
     f = body["frames"][0]
     assert len(f["left_hand_pose"]) == 45 and len(f["body_pose"]) == 63
+    # caption-sync metadata present and aligned
+    meta = body["meta"]
+    assert len(meta["clip_frame_spans"]) == len(meta["clip_ids"])
+
+
+def test_cors_preflight_allowed(client):
+    r = client.options(
+        "/api/sign",
+        headers={
+            "Origin": "https://example.com",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert r.status_code in (200, 204)
+    assert r.headers.get("access-control-allow-origin") in ("*", "https://example.com")
 
 
 def test_sign_422_on_zero_match(client):

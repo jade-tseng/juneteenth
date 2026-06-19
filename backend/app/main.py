@@ -9,8 +9,11 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+import os
+
 from asl_schemas import SignRequest, SMPLXSequence, VapiTranscriptWebhook
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import TRANSITION_FRAMES, clip_store
@@ -36,6 +39,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Voice-to-ASL Signing Avatar", lifespan=lifespan)
+
+# The deployed frontend (static on GCS/CDN) calls this API cross-origin; dev uses
+# the Vite proxy (same-origin). CORS_ALLOW_ORIGINS is a comma-separated list;
+# defaults to "*" for the POC (tighten to the real frontend origin in prod).
+_origins = os.getenv("CORS_ALLOW_ORIGINS", "*").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in _origins if o.strip()],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 def _sign(request: Request, text: str):

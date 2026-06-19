@@ -12,7 +12,13 @@ import re
 
 # english (verified gloss) — straight from the §5 table, spot-checked.
 DEMO_GLOSS: dict[str, list[str]] = {
+    # v1 words-only demo script (no fingerspelling) — every gloss has a real
+    # WLASL clip, so the avatar signs recognizably. This is the demo we run now.
     "hello": ["HELLO"],
+    "how are you today": ["HOW", "YOU", "TODAY"],
+    "i can sign": ["ME", "CAN", "SIGN"],          # I -> ME (synonym map)
+    "i am happy": ["ME", "HAPPY"],                 # copula dropped
+    # Original §5 script (kept for later, once fingerspelling clips exist).
     "how are you doing today": ["HOW", "YOU", "TODAY"],
     "my name is jade": ["MY", "NAME", "fs:J", "fs:A", "fs:D", "fs:E"],
     "i don't speak sign language but my ai does": [

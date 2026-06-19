@@ -84,6 +84,7 @@ def concatenate(
 
     out_frames: list[dict] = []
     prev_last: dict | None = None
+    spans: list[list[int]] = []  # [start, end) of each clip's own frames
 
     for clip in clips:
         cframes = [_frame_to_arrays(f) for f in clip.frames]
@@ -97,7 +98,9 @@ def concatenate(
                 t = k / (transition_frames + 1)
                 out_frames.append(_blend_frames(prev_last, cframes[0], t))
 
+        start = len(out_frames)
         out_frames.extend(cframes)
+        spans.append([start, len(out_frames)])  # this clip's own frames
         prev_last = cframes[-1]
 
     return SMPLXSequence(
@@ -108,5 +111,6 @@ def concatenate(
         meta=SMPLXSequenceMeta(
             source_gloss=[c.gloss for c in clips],
             clip_ids=[c.clip_id for c in clips],
+            clip_frame_spans=spans,
         ),
     )
