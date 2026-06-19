@@ -1,0 +1,186 @@
+{
+  "$defs": {
+    "SMPLXFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "body_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 63,
+          "minItems": 63,
+          "title": "Body Pose",
+          "type": "array"
+        },
+        "expression": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 10,
+          "minItems": 10,
+          "title": "Expression",
+          "type": "array"
+        },
+        "global_orient": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Global Orient",
+          "type": "array"
+        },
+        "jaw_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Jaw Pose",
+          "type": "array"
+        },
+        "left_hand_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 45,
+          "minItems": 45,
+          "title": "Left Hand Pose",
+          "type": "array"
+        },
+        "leye_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Leye Pose",
+          "type": "array"
+        },
+        "reye_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Reye Pose",
+          "type": "array"
+        },
+        "right_hand_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 45,
+          "minItems": 45,
+          "title": "Right Hand Pose",
+          "type": "array"
+        },
+        "transl": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Transl",
+          "type": "array"
+        }
+      },
+      "required": [
+        "global_orient",
+        "body_pose",
+        "left_hand_pose",
+        "right_hand_pose",
+        "jaw_pose",
+        "expression"
+      ],
+      "title": "SMPLXFrame",
+      "type": "object"
+    },
+    "SMPLXSequenceMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "clip_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Clip Ids"
+        },
+        "source_gloss": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Gloss"
+        }
+      },
+      "title": "SMPLXSequenceMeta",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "betas": {
+      "items": {
+        "type": "number"
+      },
+      "maxItems": 10,
+      "minItems": 10,
+      "title": "Betas",
+      "type": "array"
+    },
+    "fps": {
+      "exclusiveMinimum": 0,
+      "title": "Fps",
+      "type": "number"
+    },
+    "frames": {
+      "items": {
+        "$ref": "#/$defs/SMPLXFrame"
+      },
+      "minItems": 1,
+      "title": "Frames",
+      "type": "array"
+    },
+    "meta": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SMPLXSequenceMeta"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "model": {
+      "const": "SMPLX_NEUTRAL",
+      "title": "Model",
+      "type": "string"
+    }
+  },
+  "required": [
+    "model",
+    "fps",
+    "betas",
+    "frames"
+  ],
+  "title": "SMPLXSequence",
+  "type": "object"
+}

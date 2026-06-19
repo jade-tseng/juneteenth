@@ -1,0 +1,37 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "english": {
+      "title": "English",
+      "type": "string"
+    },
+    "gloss": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Gloss",
+      "type": "array"
+    },
+    "unmatched": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unmatched"
+    }
+  },
+  "required": [
+    "english",
+    "gloss"
+  ],
+  "title": "GlossSequence",
+  "type": "object"
+}

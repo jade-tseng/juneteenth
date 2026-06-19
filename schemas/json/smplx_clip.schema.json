@@ -1,0 +1,207 @@
+{
+  "$defs": {
+    "SMPLXClipSource": {
+      "additionalProperties": false,
+      "properties": {
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extractor"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License"
+        },
+        "video_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Video Url"
+        }
+      },
+      "title": "SMPLXClipSource",
+      "type": "object"
+    },
+    "SMPLXFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "body_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 63,
+          "minItems": 63,
+          "title": "Body Pose",
+          "type": "array"
+        },
+        "expression": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 10,
+          "minItems": 10,
+          "title": "Expression",
+          "type": "array"
+        },
+        "global_orient": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Global Orient",
+          "type": "array"
+        },
+        "jaw_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Jaw Pose",
+          "type": "array"
+        },
+        "left_hand_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 45,
+          "minItems": 45,
+          "title": "Left Hand Pose",
+          "type": "array"
+        },
+        "leye_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Leye Pose",
+          "type": "array"
+        },
+        "reye_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Reye Pose",
+          "type": "array"
+        },
+        "right_hand_pose": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 45,
+          "minItems": 45,
+          "title": "Right Hand Pose",
+          "type": "array"
+        },
+        "transl": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Transl",
+          "type": "array"
+        }
+      },
+      "required": [
+        "global_orient",
+        "body_pose",
+        "left_hand_pose",
+        "right_hand_pose",
+        "jaw_pose",
+        "expression"
+      ],
+      "title": "SMPLXFrame",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "betas": {
+      "items": {
+        "type": "number"
+      },
+      "maxItems": 10,
+      "minItems": 10,
+      "title": "Betas",
+      "type": "array"
+    },
+    "clip_id": {
+      "minLength": 1,
+      "title": "Clip Id",
+      "type": "string"
+    },
+    "fps": {
+      "exclusiveMinimum": 0,
+      "title": "Fps",
+      "type": "number"
+    },
+    "frames": {
+      "items": {
+        "$ref": "#/$defs/SMPLXFrame"
+      },
+      "minItems": 1,
+      "title": "Frames",
+      "type": "array"
+    },
+    "gloss": {
+      "minLength": 1,
+      "title": "Gloss",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "lexical",
+        "letter"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SMPLXClipSource"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "clip_id",
+    "gloss",
+    "kind",
+    "fps",
+    "betas",
+    "frames"
+  ],
+  "title": "SMPLXClip",
+  "type": "object"
+}

@@ -1,0 +1,7 @@
+# TS build
+ts/node_modules/
+ts/dist/
+# Python
+python/*.egg-info/
+**/__pycache__/
+.pytest_cache/

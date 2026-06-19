@@ -1,0 +1,42 @@
+name: schemas
+
+# W0 acceptance: types published; CI rejects malformed clips.
+on:
+  push:
+    paths: ["schemas/**", ".github/workflows/schemas.yml"]
+  pull_request:
+    paths: ["schemas/**", ".github/workflows/schemas.yml"]
+  workflow_dispatch:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: schemas/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e ".[dev]"
+      - name: Contract tests (rejects malformed clips)
+        run: python -m pytest -q
+      - name: JSON Schema is in sync with models
+        run: python -m asl_schemas.gen_json_schema --check
+      - name: Validate committed example clips
+        run: python -m asl_schemas.validate clip ../json/examples/*.clip.json
+
+  typescript:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: schemas/ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install
+      - name: Typecheck + build TS contracts
+        run: npm run build

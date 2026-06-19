@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asl-schemas"
+version = "0.1.0"
+description = "Frozen §3 data contracts for the Voice-to-ASL Signing Avatar POC"
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2.5"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "jsonschema>=4"]
+
+[project.scripts]
+asl-validate = "asl_schemas.validate:main"
+
+[tool.setuptools]
+packages = ["asl_schemas"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

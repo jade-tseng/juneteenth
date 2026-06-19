@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0A0C10" />
+    <meta
+      name="description"
+      content="signspace — an experiment that signs spoken words with a 3D avatar."
+    />
+    <title>signspace</title>
+  </head>
+  <body>
+    <!-- 3D stage (renderer-agent, §8). The avatar is the hero; canvas is
+         transparent so the CSS stage gradient reads through as one space. -->
+    <canvas id="stage" aria-hidden="true"></canvas>
+
+    <!-- Glass UI (demo-agent, §3–13). Floats at the edges, recedes. -->
+    <main id="ui">
+      <a id="wordmark" href="#" aria-label="signspace, home">signspace</a>
+
+      <!-- The signature: the caption that breathes. -->
+      <section id="caption" aria-live="polite" aria-atomic="false"></section>
+
+      <!-- Bottom-center glass control bar. -->
+      <div id="dock" class="glass" role="group" aria-label="Playback controls">
+        <button
+          id="mic"
+          class="mic"
+          type="button"
+          aria-label="Tap to speak"
+          aria-pressed="false"
+        >
+          <span class="mic-glyph" aria-hidden="true"></span>
+        </button>
+
+        <div id="playback" class="playback" hidden>
+          <button id="replay" class="replay" type="button" aria-label="Replay">
+            <span class="replay-glyph" aria-hidden="true"></span>
+          </button>
+          <div
+            id="speed"
+            class="speed"
+            role="radiogroup"
+            aria-label="Playback speed"
+          ></div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

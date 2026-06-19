@@ -1,0 +1,20 @@
+{
+  "name": "signspace-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Voice-to-ASL Signing Avatar (POC) — frontend: luminous 3D stage + glass UI",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.171.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.171.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

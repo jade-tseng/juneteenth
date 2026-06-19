@@ -1,0 +1,487 @@
+/* signspace — glass UI (UI.md §3–13).
+   These :root tokens are the shared source of truth: stage.ts reads the
+   --bg-stage-* values at runtime so the WebGL grade and the CSS stage are
+   the same lit space (§14). Change a color here, change it everywhere. */
+
+:root {
+  /* §3 Environment */
+  --bg-void: #0a0c10;
+  --bg-stage-top: #171b22;
+  --bg-stage-glow: #242c3a;
+
+  /* §3 Glass material */
+  --glass-fill: rgba(255, 255, 255, 0.055);
+  --glass-fill-hover: rgba(255, 255, 255, 0.09);
+  --glass-stroke: rgba(255, 255, 255, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.18);
+
+  /* §3 Text */
+  --text-primary: #eef1f6;
+  --text-secondary: rgba(238, 241, 246, 0.55);
+  --text-tertiary: rgba(238, 241, 246, 0.32);
+
+  /* §3 Accent — active/focus only, sparingly */
+  --accent: #93a7ff;
+  --accent-glow: rgba(147, 167, 255, 0.3);
+
+  /* §3 Feedback */
+  --danger: #ff9a9a;
+
+  /* §4 Type */
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
+    system-ui, sans-serif;
+  --font-display: -apple-system, "SF Pro Display", "Inter", system-ui,
+    sans-serif;
+
+  /* §5 Spacing / radius / elevation */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-panel: 24px;
+  --radius-control: 16px;
+  --radius-pill: 999px;
+
+  --elev-float: 0 12px 40px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  /* §9 Motion */
+  --ease-glass: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-quiet: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --dur-micro: 160ms;
+  --dur-control: 240ms;
+  --dur-state: 320ms;
+  --dur-panel: 460ms;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  /* §3 stage background. The WebGL canvas is transparent and sits on top;
+     the avatar reads against this single continuous lit space. */
+  background: radial-gradient(
+      120% 80% at 50% 38%,
+      var(--bg-stage-glow) 0%,
+      transparent 60%
+    ),
+    linear-gradient(180deg, var(--bg-stage-top) 0%, var(--bg-void) 100%);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* ── 3D stage ─────────────────────────────────────────────── */
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+  touch-action: none;
+}
+
+/* ── UI layer ─────────────────────────────────────────────── */
+#ui {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none; /* only controls capture input; the stage stays draggable */
+}
+#ui button,
+#ui a {
+  pointer-events: auto;
+}
+
+/* §7 Wordmark — top-left, secondary, → primary on hover */
+#wordmark {
+  position: absolute;
+  top: var(--space-5);
+  left: var(--space-5);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--dur-control) var(--ease-soft);
+}
+#wordmark:hover {
+  color: var(--text-primary);
+}
+/* §11 Loader — wordmark breathes while the stage assets load. No spinner. */
+#wordmark.loading {
+  animation: breathe 2.4s var(--ease-soft) infinite;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* ── §7 Caption — the signature ───────────────────────────── */
+#caption {
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%);
+  width: min(70ch, 86vw);
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4.2vw, 3rem);
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  min-height: 1.15em;
+  text-wrap: balance;
+  /* soft dark halo so light text stays legible where it crosses the figure —
+     a refined-subtitle treatment, invisible over the dark stage (§7, §13) */
+  text-shadow: 0 1px 18px rgba(10, 12, 16, 0.55), 0 1px 4px rgba(10, 12, 16, 0.5);
+}
+/* §10 idle / status prompt set quieter than the live caption */
+#caption.prompt {
+  color: var(--text-secondary);
+  font-size: clamp(1.05rem, 2.2vw, 1.4rem);
+}
+#caption.error {
+  color: var(--danger);
+}
+
+/* §9 caption word in: blur(6px)+opacity 0→1 over 280ms; outgoing fades 200ms */
+.word {
+  display: inline-block;
+  white-space: pre;
+  color: var(--text-primary);
+  opacity: 0;
+  filter: blur(6px);
+  transition: opacity 280ms var(--ease-out-quiet),
+    filter 280ms var(--ease-out-quiet);
+}
+.word.in {
+  opacity: 1;
+  filter: blur(0);
+}
+.word.out {
+  opacity: 0;
+  filter: blur(2px);
+  transition: opacity 200ms var(--ease-soft), filter 200ms var(--ease-soft);
+}
+/* word not yet reached during signing stays dim, not invisible — reads as a line */
+.word.pending {
+  opacity: 0.28;
+  filter: blur(0);
+}
+
+/* ── §6 Glass material ────────────────────────────────────── */
+.glass {
+  background: var(--glass-fill);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid var(--glass-stroke);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--elev-float);
+  position: relative;
+}
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding-top: 1px;
+  background: linear-gradient(180deg, var(--glass-highlight), transparent 40%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── §7 Control bar (dock) ────────────────────────────────── */
+#dock {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-6);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-pill);
+  /* §9 panel enter */
+  animation: dock-in var(--dur-panel) var(--ease-glass) both;
+}
+@keyframes dock-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* §11 Mic — circular glass, 60px, the primary action */
+.mic {
+  --ring: transparent;
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-stroke);
+  background: var(--glass-fill);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background var(--dur-control) var(--ease-soft),
+    transform var(--dur-micro) var(--ease-soft),
+    box-shadow var(--dur-state) var(--ease-soft);
+}
+.mic:hover {
+  background: var(--glass-fill-hover);
+}
+.mic:active {
+  transform: scale(0.97);
+}
+.mic-glyph {
+  width: 16px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: currentColor;
+  position: relative;
+  display: block;
+}
+.mic-glyph::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  width: 18px;
+  height: 9px;
+  border: 2px solid currentColor;
+  border-top: 0;
+  border-radius: 0 0 999px 999px;
+  transform: translateX(-50%);
+}
+/* §10 Listening — accent ring pulse, calm 2.4s loop, low alpha */
+.mic.listening {
+  color: var(--accent);
+  background: var(--glass-fill-hover);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--accent-glow);
+}
+.mic.listening::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  animation: pulse-ring 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes pulse-ring {
+  0% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+/* §10 Processing — quiet accent sweep across the bar */
+#dock.processing::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    var(--accent-glow) 50%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  animation: sweep 1.3s var(--ease-soft) infinite;
+  pointer-events: none;
+}
+@keyframes sweep {
+  from {
+    background-position: 140% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
+}
+
+/* §11 Playback — replay + speed; appears only after a phrase is ready */
+.playback {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  animation: fade-in var(--dur-state) var(--ease-glass) both;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.replay {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-stroke);
+  background: var(--glass-fill);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background var(--dur-control) var(--ease-soft),
+    transform var(--dur-micro) var(--ease-soft);
+}
+.replay:hover {
+  background: var(--glass-fill-hover);
+}
+.replay:active {
+  transform: scale(0.97);
+}
+.replay-glyph {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-pill);
+  position: relative;
+  transform: rotate(45deg);
+}
+.replay-glyph::after {
+  /* arrowhead */
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -2px;
+  width: 0;
+  height: 0;
+  border: 4px solid transparent;
+  border-bottom-color: currentColor;
+  transform: rotate(-45deg);
+}
+
+/* §11 Speed — small glass segment, tabular-nums */
+.speed {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-stroke);
+}
+.speed button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color var(--dur-control) var(--ease-soft),
+    background var(--dur-control) var(--ease-soft);
+}
+.speed button:hover {
+  color: var(--text-primary);
+}
+.speed button[aria-checked="true"] {
+  color: var(--text-primary);
+  background: var(--glass-fill-hover);
+}
+
+/* ── §13 Focus ring — visible on every control ────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}
+
+/* ── §9 Reduced motion ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+  }
+  .word {
+    filter: none !important;
+  }
+  .mic.listening::before,
+  #dock.processing::after {
+    animation: none;
+  }
+  #wordmark.loading {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* ── §7 Responsive (mobile): single column, dock widens ────── */
+@media (max-width: 600px) {
+  #dock {
+    left: var(--space-4);
+    right: var(--space-4);
+    transform: none;
+    justify-content: center;
+    animation: dock-in-mobile var(--dur-panel) var(--ease-glass) both;
+  }
+  @keyframes dock-in-mobile {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  #caption {
+    bottom: 26%;
+  }
+}

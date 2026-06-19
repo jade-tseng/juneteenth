@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {
+      "default": 0,
+      "title": "Timestamp",
+      "type": "number"
+    },
+    "transcript": {
+      "title": "Transcript",
+      "type": "string"
+    },
+    "type": {
+      "const": "transcript",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type",
+    "transcript"
+  ],
+  "title": "VapiTranscriptWebhook",
+  "type": "object"
+}

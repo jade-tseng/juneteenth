@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Env / secrets (never commit keys — use Secret Manager per §7)
+.env
+.env.*
+*.local
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.log
