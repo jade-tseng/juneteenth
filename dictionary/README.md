@@ -15,8 +15,12 @@ voice → gloss (W2) → [ dictionary lookup (W3) ] → blend (W4) → player (W
 
 | Path | Command | Where | Output |
 |------|---------|-------|--------|
-| **Real** | `build.py extract --videos raw/` | GPU VM | SMPLer-X-extracted clips |
+| **Real A (WLASL)** | `build.py wlasl-select` → `build.py extract` | GPU VM | SMPLer-X-extracted clips |
+| **Real B (SignAvatars)** | `build.py signavatars pkls/` | anywhere (CPU) | mocap SMPL-X clips |
 | **Placeholder** | `build.py synth` | anywhere | procedural clips (no GPU/video) |
+
+The turnkey real-clip procedure (both routes), the gloss→clip_id mapping, and
+the COMMUNICATE→TALK synonym decision live in **[`REAL_CLIPS.md`](REAL_CLIPS.md)**.
 
 Both assemble frames via `aslpipe/build_clip.py`, which **schema-validates against
 the frozen `asl_schemas.SMPLXClip` before writing** — the same check CI runs (W0).

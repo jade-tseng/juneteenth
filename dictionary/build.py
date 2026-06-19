@@ -3,6 +3,8 @@
 
   python build.py synth                 # procedural placeholder clips (off-GPU)
   python build.py extract --videos DIR  # real SMPLer-X extraction (GPU VM)
+  python build.py wlasl-select          # pick WLASL videos -> selection manifest
+  python build.py signavatars DIR       # convert SignAvatars .pkl seq -> clips
   python build.py validate              # schema-check every built clip
   python build.py upload                # rsync clips/ -> GCS dictionary bucket
   python build.py all                   # synth + validate (default off-GPU build)
@@ -20,6 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 CLIPS_DIR = ROOT / "clips"
 MANIFEST = ROOT / "manifest.json"
+WLASL_SELECTION = ROOT / "wlasl_selection.json"
 
 # package-local imports
 sys.path.insert(0, str(ROOT))
@@ -85,6 +88,46 @@ def cmd_extract(args) -> int:
     return 0
 
 
+def cmd_wlasl_select(args) -> int:
+    from aslpipe.wlasl import load_metadata, select_for_seed, write_selection
+
+    meta_path = Path(args.metadata) if args.metadata else None
+    metadata = load_metadata(meta_path)
+    selection = select_for_seed(metadata)
+    out = Path(args.out) if args.out else WLASL_SELECTION
+    write_selection(selection, out)
+    for s in selection["selections"]:
+        syn = f"  (synonym: {s['synonym_of']})" if s.get("synonym_of") else ""
+        print(f"  {s['gloss']:<12} -> {s['clip_id']}  video={s['video_id']} "
+              f"split={s['split']}{syn}")
+    if selection["missing"]:
+        print(f"\n  MISSING (no WLASL gloss/synonym): {selection['missing']}",
+              file=sys.stderr)
+    print(f"\nWrote selection manifest -> {out}")
+    return 0
+
+
+def cmd_signavatars(args) -> int:
+    from aslpipe.signavatars import convert_dir
+
+    m = load_manifest()
+    # SignAvatars covers lexical signs; fingerspelling is descoped for v1.
+    entries = [e for e in m["entries"] if e["kind"] == "lexical"]
+    written = convert_dir(
+        Path(args.pkl_dir), CLIPS_DIR,
+        manifest_entries=entries,
+        dst_fps=m["fps"], license=m["license"],
+    )
+    for p in written:
+        print(f"  signavatars -> {p.name}")
+    print(f"\nConverted {len(written)} SignAvatars clip(s) into {CLIPS_DIR}")
+    if not written:
+        print("  (no matching <clip_id>.pkl files found in "
+              f"{args.pkl_dir})", file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_validate(_args) -> int:
     # reuse the exact CI validator over the frozen contract
     schemas = ROOT.parent / "schemas" / "python"
@@ -130,6 +173,17 @@ def main() -> int:
     pe.add_argument("--src-fps", type=float, default=30.0, help="source video fps")
     pe.add_argument("--only", nargs="*", help="clip_ids to (re)build")
     pe.set_defaults(fn=cmd_extract)
+
+    pw = sub.add_parser("wlasl-select",
+                        help="pick one WLASL video per seed gloss -> selection manifest")
+    pw.add_argument("--metadata", help="local WLASL_v0.3.json (else fetch upstream)")
+    pw.add_argument("--out", help=f"output path (default {WLASL_SELECTION.name})")
+    pw.set_defaults(fn=cmd_wlasl_select)
+
+    ps = sub.add_parser("signavatars",
+                        help="convert a dir of SignAvatars .pkl SMPL-X sequences -> clips")
+    ps.add_argument("pkl_dir", help="dir of <clip_id>.pkl SignAvatars sequences")
+    ps.set_defaults(fn=cmd_signavatars)
 
     sub.add_parser("validate").set_defaults(fn=cmd_validate)
     sub.add_parser("upload").set_defaults(fn=cmd_upload)

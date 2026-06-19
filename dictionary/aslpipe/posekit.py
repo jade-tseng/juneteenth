@@ -237,6 +237,55 @@ def _blend(a: Frame, b: Frame, t: float) -> Frame:
     return out
 
 
+def normalize_root(frames: list[Frame]) -> list[Frame]:
+    """Front-face + center a camera-frame sequence (load-bearing for W5).
+
+    SMPLer-X / SignAvatars output is in the *camera* frame: `global_orient`
+    carries the subject's orientation relative to the camera and `transl` their
+    position in view. Fed straight to the renderer the avatar comes out rotated
+    and off-screen. This removes that camera pose while preserving the sign's
+    own articulation:
+
+      * Take the first frame's root rotation R0 as the reference orientation.
+        Left-multiply every frame's global_orient by R0^-1 so frame 0 faces
+        front (root ≈ identity) and later frames keep their motion *relative*
+        to frame 0 (turning the torso mid-sign is preserved).
+      * Subtract frame 0's translation from every frame and zero its depth, so
+        the avatar is centered at the origin. Body/hand/jaw poses are local to
+        the kinematic tree and are left untouched.
+
+    Returns new frames; input is not mutated.
+    """
+    if not frames:
+        return frames
+    out = [f.copy() for f in frames]
+
+    # reference: inverse of frame 0's root rotation (axis-angle -> quaternion).
+    q0 = _aa_to_quat(frames[0].global_orient)
+    q0_inv = np.array([-q0[0], -q0[1], -q0[2], q0[3]])  # conjugate (unit quat)
+    t0 = frames[0].transl.copy()
+
+    for i, f in enumerate(out):
+        q = _aa_to_quat(frames[i].global_orient)
+        q_norm = _quat_mul(q0_inv, q)
+        f.global_orient = _quat_to_aa(q_norm)
+        # re-center: drop frame 0's position; zero depth so the avatar sits at origin.
+        f.transl = frames[i].transl - t0
+    return out
+
+
+def _quat_mul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Hamilton product of two [x,y,z,w] quaternions."""
+    ax, ay, az, aw = a
+    bx, by, bz, bw = b
+    return np.array([
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+        aw * bw - ax * bx - ay * by - az * bz,
+    ])
+
+
 def resample(frames: list[Frame], src_fps: float, dst_fps: float) -> list[Frame]:
     """Resample to a common fps (§4.4) via per-channel slerp; betas unaffected."""
     if abs(src_fps - dst_fps) < 1e-6 or len(frames) < 2:
