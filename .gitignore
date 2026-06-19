@@ -5,6 +5,11 @@ node_modules/
 dist/
 build/
 
+# W6 dictionary: generated clips (regenerate with `build.py synth`; canonical
+# copies live in gs://…-dictionary/clips/) and extraction scratch
+dictionary/clips/
+dictionary/.work/
+
 # Python
 __pycache__/
 *.py[cod]
