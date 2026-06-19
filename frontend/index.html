@@ -25,6 +25,20 @@
       <!-- The signature: the caption that breathes. -->
       <section id="caption" aria-live="polite" aria-atomic="false"></section>
 
+      <!-- Typed-text input — the primary trigger (no Vapi creds in this build).
+           Type a phrase, Enter or Sign sends it to POST /api/sign. -->
+      <form id="textform" class="glass textform" autocomplete="off">
+        <input
+          id="textinput"
+          class="textinput"
+          type="text"
+          name="phrase"
+          placeholder="Type a phrase to sign…"
+          aria-label="Phrase to sign"
+        />
+        <button id="textsend" class="textsend" type="submit">Sign</button>
+      </form>
+
       <!-- Bottom-center glass control bar. -->
       <div id="dock" class="glass" role="group" aria-label="Playback controls">
         <button
