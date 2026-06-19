@@ -4,7 +4,8 @@ import { Caption } from "./caption.ts";
 import { Controls } from "./controls.ts";
 import { SignPlayer } from "./player.ts";
 import { DEMO_TIMELINE } from "./timeline.ts";
-import type { SignSentence } from "./types.ts";
+import type { SignSentence, SMPLXSequence } from "./types.ts";
+import { tryStartVapi } from "./vapi.ts";
 
 // signspace — Voice-to-ASL Signing Avatar (POC), frontend entry point.
 // Wires the luminous stage, the breathing caption, the glass controls, and a
@@ -23,10 +24,15 @@ const stage = new Stage(canvas);
 const caption = new Caption(captionEl);
 const player = new SignPlayer(stage.avatar, caption);
 
+// Load the real SMPL-X mesh (Route A); when ready the player drives it instead
+// of the placeholder rig. Failure logs and leaves the placeholder in place.
+stage.loadSMPLX().then((mesh) => player.setMesh(mesh));
+
 let state: State = "idle";
 let listenTimer = 0;
 let processTimer = 0;
 let lastSentences: SignSentence[] = [];
+let lastText = ""; // last phrase sent to the backend (for replay)
 
 const controls = new Controls({
   onMic: () => onMic(),
@@ -46,12 +52,30 @@ stage.start((dt) => {
     // ?frame=N — autoplay then seek to a frame (deterministic for testing)
     const q = new URLSearchParams(location.search);
     if (q.has("autoplay") || q.has("frame")) {
+      // deterministic demo: sign the cached, hand-verified script (no backend)
       requestSigning();
       const f = Number(q.get("frame"));
       if (Number.isFinite(f) && f > 0) player.seek(f);
     }
   }
   player.update(dt);
+});
+
+// ── text input: the primary trigger (POST /api/sign) ───────────────────────
+const textForm = document.getElementById("textform") as HTMLFormElement | null;
+const textInput = document.getElementById("textinput") as HTMLInputElement | null;
+textForm?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = (textInput?.value ?? "").trim();
+  if (!text) return;
+  requestSigningText(text);
+});
+
+// Vapi STT is scaffolded but gated behind creds (Phase 4). When unconfigured —
+// the default in this build — typed text is the path; the mic mock stays.
+tryStartVapi({
+  onTranscript: (text) => requestSigningText(text),
+  onListening: () => setState("listening"),
 });
 
 // ── state machine (§10) ──────────────────────────────────────────────────
@@ -122,13 +146,49 @@ function onMic() {
   }
 }
 
-// Resolve speech → signs. Today: the cached, hand-verified demo script.
-// Later: POST { text } to /api/sign on Cloud Run, render the returned
-// SMPLXSequence, and surface 422 (unmatched vocabulary) via showUnmatched().
+// Cached, hand-verified demo script (CLAUDE.md §5) — drives the placeholder
+// gesture path for ?autoplay / the mic mock so the demo never depends on a live
+// backend or LLM call. The real path is requestSigningText() below.
 function requestSigning() {
   const sentences = DEMO_TIMELINE.sentences;
   lastSentences = sentences;
+  lastText = "";
   startSigning(sentences);
+}
+
+// Real path: POST { text } to /api/sign on Cloud Run (via the Vite proxy in
+// dev). 200 → render the returned SMPLXSequence on the SMPL-X mesh; 422 →
+// unmatched-vocabulary UI; network/other errors → generic error copy. If the
+// SMPL-X mesh hasn't loaded yet, fall back to the cached gesture demo.
+async function requestSigningText(text: string) {
+  lastText = text;
+  lastSentences = [];
+  setState("processing");
+  try {
+    const res = await fetch("/api/sign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (res.status === 422) {
+      showUnmatched();
+      return;
+    }
+    if (!res.ok) {
+      showError();
+      return;
+    }
+    const seq = (await res.json()) as SMPLXSequence;
+    if (!stage.mesh || !seq.frames?.length) {
+      // mesh not ready — fall back to the cached gesture demo so the UI works
+      requestSigning();
+      return;
+    }
+    setState("signing");
+    player.playSMPLX(seq, controls.speedRate, () => setState("ready"));
+  } catch {
+    showError();
+  }
 }
 
 function startSigning(sentences: SignSentence[]) {
@@ -139,6 +199,10 @@ function startSigning(sentences: SignSentence[]) {
 }
 
 function replay() {
+  if (lastText) {
+    requestSigningText(lastText);
+    return;
+  }
   if (!lastSentences.length) return;
   startSigning(lastSentences);
 }
@@ -153,5 +217,3 @@ export function showUnmatched() {
   setState("error");
   caption.status("I don't know those signs yet.", "error");
 }
-void showError;
-void showUnmatched;

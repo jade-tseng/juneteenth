@@ -1,6 +1,7 @@
 import type { Avatar } from "./avatar.ts";
 import type { Caption } from "./caption.ts";
-import type { GestureCue, SignSentence } from "./types.ts";
+import type { SMPLXMesh } from "./smplx/mesh.ts";
+import type { GestureCue, SignSentence, SMPLXSequence } from "./types.ts";
 
 // Drives the avatar and the caption from a single frame cursor (UI.md §14).
 // A schedule of timed steps is built once from the timeline; update(dt) walks
@@ -19,6 +20,8 @@ interface Step {
 const LEAD_IN = 8; // frames before the first sign (keeps time-to-first-sign low)
 const REST_HOLD = 16; // frames of stillness between sentences
 
+type Mode = "gesture" | "smplx";
+
 export class SignPlayer {
   private steps: Step[] = [];
   private fps = 30;
@@ -31,7 +34,18 @@ export class SignPlayer {
   private lastWord = -1;
   private onEnd?: () => void;
 
+  // ── SMPL-X playback (real frames from POST /api/sign) ──────────────────────
+  private mode: Mode = "gesture";
+  private mesh: SMPLXMesh | null = null;
+  private seq: SMPLXSequence | null = null;
+  private spanRevealed = -1; // last caption word index revealed in smplx mode
+
   constructor(private avatar: Avatar, private caption: Caption) {}
+
+  /** Bind the real SMPL-X mesh once the stage finishes loading it. */
+  setMesh(mesh: SMPLXMesh | null) {
+    this.mesh = mesh;
+  }
 
   private build(sentences: SignSentence[]) {
     const steps: Step[] = [];
@@ -65,6 +79,7 @@ export class SignPlayer {
   }
 
   play(sentences: SignSentence[], fps: number, speed: number, onEnd?: () => void) {
+    this.mode = "gesture";
     this.sentences = sentences;
     this.fps = fps;
     this.speed = speed;
@@ -76,18 +91,58 @@ export class SignPlayer {
     this.playing = true;
   }
 
+  /**
+   * Play a real SMPL-X sequence from POST /api/sign on the loaded mesh. The
+   * cursor advances at seq.fps × speed; each frame is rendered via mesh.setFrame.
+   * Caption words are revealed using meta.clip_frame_spans (each word lights
+   * during its clip's [start,end) span) when present, evenly otherwise (§14).
+   * Falls back to no-op if the mesh has not loaded.
+   */
+  playSMPLX(seq: SMPLXSequence, speed: number, onEnd?: () => void) {
+    if (!this.mesh || !seq.frames.length) {
+      onEnd?.();
+      return;
+    }
+    this.mode = "smplx";
+    this.seq = seq;
+    this.fps = seq.fps || 30;
+    this.speed = speed;
+    this.onEnd = onEnd;
+    this.cursor = 0;
+    this.total = seq.frames.length;
+    this.spanRevealed = -1;
+
+    this.mesh.bindBetas(seq.betas ?? []);
+
+    // lay out the caption: one word per played clip (meta.source_gloss), dimmed
+    const words = seq.meta?.source_gloss ?? [];
+    if (words.length) {
+      this.caption.sentence(words.join(" "), words);
+    } else {
+      this.caption.clear();
+    }
+    this.mesh.setFrame(seq.frames[0]);
+    this.playing = true;
+  }
+
   setSpeed(speed: number) {
     this.speed = speed;
   }
 
   stop() {
     this.playing = false;
-    this.avatar.settleToRest();
+    if (this.mode === "smplx") this.mesh?.setRest();
+    else this.avatar.settleToRest();
   }
 
   update(dt: number) {
     if (!this.playing) return;
     this.cursor += dt * this.fps * this.speed;
+
+    if (this.mode === "smplx") {
+      this.updateSMPLX();
+      return;
+    }
 
     if (this.cursor >= this.total) {
       this.playing = false;
@@ -96,6 +151,50 @@ export class SignPlayer {
       return;
     }
     this.applyCurrent();
+  }
+
+  private updateSMPLX() {
+    const seq = this.seq;
+    if (!seq || !this.mesh) return;
+
+    if (this.cursor >= this.total) {
+      // reveal any remaining words and settle to rest
+      this.revealSpansUpTo(this.total);
+      this.playing = false;
+      this.mesh.setRest();
+      this.onEnd?.();
+      return;
+    }
+
+    const frame = Math.floor(this.cursor);
+    this.mesh.setFrame(seq.frames[frame]);
+    this.revealSpansUpTo(frame);
+  }
+
+  /** Reveal each caption word whose clip span has started by `frame` (§14). */
+  private revealSpansUpTo(frame: number) {
+    const spans = this.seq?.meta?.clip_frame_spans;
+    const words = this.seq?.meta?.source_gloss ?? [];
+    if (!words.length) return;
+    if (spans && spans.length === words.length) {
+      // light each word once its clip's [start,end) span has begun
+      for (let i = this.spanRevealed + 1; i < words.length; i++) {
+        if (frame >= spans[i][0]) {
+          this.caption.reveal(i);
+          this.spanRevealed = i;
+        } else break;
+      }
+    } else {
+      // no spans: distribute words evenly across the sequence
+      const idx = Math.min(
+        words.length - 1,
+        Math.floor((frame / Math.max(1, this.total)) * words.length)
+      );
+      if (idx > this.spanRevealed) {
+        this.caption.reveal(idx);
+        this.spanRevealed = idx;
+      }
+    }
   }
 
   /** Jump the cursor to a frame and render that moment (debug / scrubbing). */

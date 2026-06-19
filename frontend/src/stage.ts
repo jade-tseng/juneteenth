@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { Avatar } from "./avatar.ts";
+import { loadSMPLXModel } from "./smplx/model.ts";
+import { SMPLXMesh } from "./smplx/mesh.ts";
 
 // The luminous 3D stage (UI.md §8). Tone mapping + AA + color management on,
 // palette matched to the CSS tokens, soft three-point light, idle camera drift.
@@ -15,7 +17,13 @@ const reducedMotion = window.matchMedia(
 ).matches;
 
 export class Stage {
+  // Placeholder articulated rig — kept as the fallback renderer and the live
+  // figure until the SMPL-X mesh (Route A) finishes loading, or when forced
+  // off via ?rig=avatar.
   readonly avatar = new Avatar();
+  // Real SMPL-X mesh, populated asynchronously by loadSMPLX(). Null until then
+  // (and when the placeholder rig is forced).
+  mesh: SMPLXMesh | null = null;
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
@@ -23,8 +31,12 @@ export class Stage {
   private contact!: THREE.Mesh;
   private baseDist = 2.2; // camera orbit radius, set on resize
   private raf = 0;
+  private useSMPLX: boolean;
 
   constructor(canvas: HTMLCanvasElement) {
+    // Route A SMPL-X mesh is the default; ?rig=avatar forces the placeholder.
+    this.useSMPLX =
+      new URLSearchParams(location.search).get("rig") !== "avatar";
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
@@ -50,6 +62,31 @@ export class Stage {
 
     this.resize();
     window.addEventListener("resize", this.resize);
+  }
+
+  /**
+   * Load the SMPL-X model assets and swap the placeholder Avatar for the real
+   * mesh. Resolves to the mesh on success, or null if loading fails / the
+   * placeholder rig was forced — callers fall back to driving stage.avatar.
+   * Idempotent.
+   */
+  async loadSMPLX(): Promise<SMPLXMesh | null> {
+    if (!this.useSMPLX) return null;
+    if (this.mesh) return this.mesh;
+    try {
+      const model = await loadSMPLXModel();
+      const mesh = new SMPLXMesh(model);
+      mesh.setRest();
+      this.scene.add(mesh.root);
+      // hide the placeholder rig; the mesh is now the hero
+      this.avatar.root.visible = false;
+      this.mesh = mesh;
+      return mesh;
+    } catch (err) {
+      console.warn("[stage] SMPL-X load failed; using placeholder rig", err);
+      this.useSMPLX = false;
+      return null;
+    }
   }
 
   // soft neutral studio IBL for gentle, non-harsh reflections (§8)
@@ -124,7 +161,9 @@ export class Stage {
       const t = this.clock.elapsedTime;
 
       onFrame?.(dt, t);
-      this.avatar.update(dt, t, reducedMotion);
+      // placeholder rig animates itself; the SMPL-X mesh is frame-driven by the
+      // player, so only tick the Avatar when it is the active renderer.
+      if (!this.mesh) this.avatar.update(dt, t, reducedMotion);
 
       // idle camera drift — ±1.5° orbit over ~17s so the scene is never dead
       const a = reducedMotion

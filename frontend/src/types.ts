@@ -19,7 +19,16 @@ export interface SMPLXSequence {
   fps: number;
   betas: number[]; // [10]
   frames: SMPLXFrame[];
-  meta?: { source_gloss?: string[]; clip_ids?: string[] };
+  meta?: {
+    source_gloss?: string[]; // one English word/token per played clip
+    clip_ids?: string[];
+    /**
+     * [start, end) frame indices per clip, aligned 1:1 with source_gloss.
+     * Drives caption reveal — each word lights during its clip's span (§14)
+     * instead of being timed evenly. Provided by the backend (W4 blend).
+     */
+    clip_frame_spans?: [number, number][];
+  };
 }
 
 // ── Caption/avatar timing ───────────────────────────────────────────────
