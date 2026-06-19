@@ -1,0 +1,29 @@
+{
+  "_comment": "W6 seed dictionary — exactly the §5 demo-script vocabulary (13 lexical + 5 letters = 18). Each entry: one reference sign video -> one SMPLXClip. video_url points at the raw clips bucket; real extraction runs SMPLer-X on the GPU VM. J is a motion letter (trajectory, not a static pose).",
+  "model": "SMPLX_NEUTRAL",
+  "fps": 30,
+  "license": "CC-BY-NC",
+  "extractor": "SMPLer-X",
+  "raw_prefix": "gs://buildday-499318-dictionary/raw",
+  "entries": [
+    { "clip_id": "hello-001",       "gloss": "HELLO",       "kind": "lexical", "video": "hello.mp4" },
+    { "clip_id": "how-001",         "gloss": "HOW",         "kind": "lexical", "video": "how.mp4" },
+    { "clip_id": "you-001",         "gloss": "YOU",         "kind": "lexical", "video": "you.mp4" },
+    { "clip_id": "today-001",       "gloss": "TODAY",       "kind": "lexical", "video": "today.mp4" },
+    { "clip_id": "my-001",          "gloss": "MY",          "kind": "lexical", "video": "my.mp4" },
+    { "clip_id": "name-001",        "gloss": "NAME",        "kind": "lexical", "video": "name.mp4" },
+    { "clip_id": "me-001",          "gloss": "ME",          "kind": "lexical", "video": "me.mp4" },
+    { "clip_id": "sign-001",        "gloss": "SIGN",        "kind": "lexical", "video": "sign.mp4" },
+    { "clip_id": "not-001",         "gloss": "NOT",         "kind": "lexical", "video": "not.mp4" },
+    { "clip_id": "but-001",         "gloss": "BUT",         "kind": "lexical", "video": "but.mp4" },
+    { "clip_id": "can-001",         "gloss": "CAN",         "kind": "lexical", "video": "can.mp4" },
+    { "clip_id": "happy-001",       "gloss": "HAPPY",       "kind": "lexical", "video": "happy.mp4" },
+    { "clip_id": "communicate-001", "gloss": "COMMUNICATE", "kind": "lexical", "video": "communicate.mp4" },
+
+    { "clip_id": "fs-j-001", "gloss": "J", "kind": "letter", "video": "fs_j.mp4", "motion": true },
+    { "clip_id": "fs-a-001", "gloss": "A", "kind": "letter", "video": "fs_a.mp4" },
+    { "clip_id": "fs-d-001", "gloss": "D", "kind": "letter", "video": "fs_d.mp4" },
+    { "clip_id": "fs-e-001", "gloss": "E", "kind": "letter", "video": "fs_e.mp4" },
+    { "clip_id": "fs-i-001", "gloss": "I", "kind": "letter", "video": "fs_i.mp4" }
+  ]
+}

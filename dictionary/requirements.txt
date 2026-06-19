@@ -1,0 +1,5 @@
+# W6 dictionary build pipeline. SMPLer-X brings its own heavy deps (torch, cuda,
+# mmcv, etc.) installed separately on the GPU VM via gpu_vm/setup.sh.
+numpy>=1.24
+scipy>=1.10
+pydantic>=2.5     # via asl_schemas (frozen §3 contracts)
