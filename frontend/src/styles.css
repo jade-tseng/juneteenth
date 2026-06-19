@@ -290,6 +290,38 @@ body {
   border-color: var(--glass-highlight);
 }
 
+/* Example phrases — quiet pills above the input; real extracted ASL clips. */
+.examples {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--space-6) + 150px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+  width: min(440px, 84vw);
+  animation: dock-in var(--dur-panel) var(--ease-glass) both;
+}
+.chip {
+  border: 1px solid var(--glass-stroke);
+  background: var(--glass-fill);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-soft),
+    background var(--dur-micro) var(--ease-soft),
+    border-color var(--dur-micro) var(--ease-soft);
+}
+.chip:hover {
+  color: var(--text-primary);
+  background: var(--glass-fill-hover);
+  border-color: var(--glass-highlight);
+}
+
 /* §11 Mic — circular glass, 60px, the primary action */
 .mic {
   --ring: transparent;

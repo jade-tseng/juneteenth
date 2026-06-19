@@ -74,6 +74,16 @@ textForm?.addEventListener("submit", (e) => {
   requestSigningText(text);
 });
 
+// Example phrases (backed by real SignAvatars ASL clips) — tap to fill + sign.
+document.querySelectorAll<HTMLButtonElement>("#examples .chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    const text = (chip.textContent ?? "").trim();
+    if (!text) return;
+    if (textInput) textInput.value = text;
+    requestSigningText(text);
+  });
+});
+
 // Vapi STT (W1). When VITE_VAPI_PUBLIC_KEY + VITE_VAPI_ASSISTANT_ID are set, the
 // mic opens a real transcription call and the final transcript drives
 // requestSigningText → POST /api/sign. Unconfigured → vapi is null and the mic

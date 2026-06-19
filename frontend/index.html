@@ -33,11 +33,19 @@
           class="textinput"
           type="text"
           name="phrase"
-          placeholder="Type a phrase to sign…"
+          placeholder="Try: ASL is amazing"
           aria-label="Phrase to sign"
         />
         <button id="textsend" class="textsend" type="submit">Sign</button>
       </form>
+
+      <!-- Example phrases backed by real extracted ASL clips (tap to sign). -->
+      <div id="examples" class="examples" aria-label="Example phrases">
+        <button class="chip" type="button">ASL is amazing</button>
+        <button class="chip" type="button">ask again</button>
+        <button class="chip" type="button">always agree</button>
+        <button class="chip" type="button">I appreciate art</button>
+      </div>
 
       <!-- Bottom-center glass control bar. -->
       <div id="dock" class="glass" role="group" aria-label="Playback controls">
