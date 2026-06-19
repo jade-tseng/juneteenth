@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asl-backend"
+version = "0.1.0"
+description = "Cloud Run backend for the Voice-to-ASL Signing Avatar POC (gloss/lookup/blend)"
+requires-python = ">=3.10"
+dependencies = [
+    "asl-schemas",      # local: schemas/python (frozen §3 contracts)
+    "openai>=1.40",     # Nebius (OpenAI-compatible) primary gloss provider
+    "anthropic>=0.40",  # Claude fallback gloss provider
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

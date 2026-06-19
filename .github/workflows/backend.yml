@@ -1,0 +1,28 @@
+name: backend
+
+# W2 gloss tests (offline: cache + passthrough + fall-through). No API keys
+# needed — the LLM providers report unavailable without keys and are skipped.
+on:
+  push:
+    paths: ["backend/**", "schemas/python/**", ".github/workflows/backend.yml"]
+  pull_request:
+    paths: ["backend/**", "schemas/python/**", ".github/workflows/backend.yml"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install frozen contracts + backend
+        run: |
+          python -m pip install -e ../schemas/python
+          python -m pip install -e ".[dev]"
+      - name: Gloss tests
+        run: python -m pytest -q
