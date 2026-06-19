@@ -188,8 +188,15 @@ function requestSigning() {
 // Default sign played when speech isn't recognized — there's always output.
 const DEFAULT_PHRASE = "ASL is amazing";
 
-async function requestSigningText(text: string, isFallback = false) {
-  lastText = text;
+// `text` is what we send to /api/sign (the sign); `captionText` is what we show
+// (always the user's actual speech). On the default fallback they differ: we
+// sign DEFAULT_PHRASE but the caption keeps the user's words.
+async function requestSigningText(
+  text: string,
+  captionText: string = text,
+  isFallback = false
+) {
+  lastText = captionText;
   lastSentences = [];
   setState("processing");
   try {
@@ -199,9 +206,9 @@ async function requestSigningText(text: string, isFallback = false) {
       body: JSON.stringify({ text }),
     });
     if (res.status === 422) {
-      // Unrecognized words → fall back to the default sign so the avatar always
-      // signs *something*. Guard against recursion if the default itself fails.
-      if (!isFallback) requestSigningText(DEFAULT_PHRASE, true);
+      // Unrecognized words → sign the default, but keep showing the user's
+      // speech as the caption. Guard against recursion if the default fails.
+      if (!isFallback) requestSigningText(DEFAULT_PHRASE, captionText, true);
       else showError();
       return;
     }
@@ -216,7 +223,7 @@ async function requestSigningText(text: string, isFallback = false) {
       return;
     }
     setState("signing");
-    player.playSMPLX(seq, controls.speedRate, () => setState("ready"));
+    player.playSMPLX(seq, controls.speedRate, captionText, () => setState("ready"));
   } catch {
     showError();
   }
