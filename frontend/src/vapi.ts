@@ -1,31 +1,13 @@
-// Vapi STT integration (CLAUDE.md §4.1, W1).
+// Vapi STT (CLAUDE.md §4.1, W1). Wires the @vapi-ai/web SDK so the mic does live
+// speech→text: start a call, surface the user's interim + final transcripts, and
+// mute the assistant so it never talks back (STT only — no TTS, §1a/§4.1).
 //
-// The browser uses the Vapi *public* key + an assistant id (both VITE_ env vars,
-// statically inlined by Vite at build time). The assistant is configured
-// transcription-only ("ASL Signing — STT only"); we consume final user
-// transcripts and forward them to POST /api/sign, then stop the call so the
-// assistant never speaks back.
-//
-// When the env vars are absent (e.g. a build without creds), initVapi() returns
-// null and the caller keeps the typed-text / mic-mock path — nothing breaks.
+// Gated behind creds: the Web SDK needs a PUBLIC key + an assistant id
+// (VITE_VAPI_PUBLIC_KEY / VITE_VAPI_ASSISTANT_ID, injected at build time — both
+// are client-safe). When either is absent, vapiConfigured() is false and main.ts
+// keeps the typed-text + mock path instead.
 
 import Vapi from "@vapi-ai/web";
-
-export interface VapiHandlers {
-  /** Called with each final STT transcript (user speech). */
-  onTranscript: (text: string) => void;
-  /** Called when the mic call opens, to flip the UI to "listening". */
-  onListening?: () => void;
-  /** Called on a Vapi error so the UI can recover. */
-  onError?: (err: unknown) => void;
-}
-
-export interface VapiController {
-  /** Open the mic and start a transcription call. */
-  start: () => Promise<void>;
-  /** End the call (also auto-called after a final transcript). */
-  stop: () => void;
-}
 
 interface VapiEnv {
   VITE_VAPI_PUBLIC_KEY?: string;
@@ -33,6 +15,7 @@ interface VapiEnv {
 }
 
 function readEnv(): VapiEnv {
+  // import.meta.env is statically replaced by Vite at build time.
   const env = import.meta.env as unknown as VapiEnv;
   return {
     VITE_VAPI_PUBLIC_KEY: env.VITE_VAPI_PUBLIC_KEY,
@@ -45,38 +28,81 @@ export function vapiConfigured(): boolean {
   return Boolean(VITE_VAPI_PUBLIC_KEY && VITE_VAPI_ASSISTANT_ID);
 }
 
+export interface VapiHandlers {
+  /** Call connected, mic open. */
+  onListening?: () => void;
+  /** Live interim transcript — updates as the user speaks. */
+  onPartial?: (text: string) => void;
+  /** Final user utterance — drive the signing pipeline with this. */
+  onFinal: (text: string) => void;
+  /** Call ended (user stopped, or after a final utterance). */
+  onEnd?: () => void;
+  /** SDK / connection error. */
+  onError?: (error: unknown) => void;
+}
+
 /**
- * Build a Vapi controller if (and only if) creds are present; otherwise null.
- * Registers transcript/listening/error listeners once.
+ * Start/stop controller around a single Vapi call. The mic button drives it:
+ * start() opens the call, stop() ends it. The instance is reused across calls.
  */
-export function initVapi(handlers: VapiHandlers): VapiController | null {
-  const { VITE_VAPI_PUBLIC_KEY, VITE_VAPI_ASSISTANT_ID } = readEnv();
-  if (!VITE_VAPI_PUBLIC_KEY || !VITE_VAPI_ASSISTANT_ID) return null;
+export class VapiSTT {
+  private vapi: Vapi | null = null;
+  private running = false;
 
-  const vapi = new Vapi(VITE_VAPI_PUBLIC_KEY);
+  constructor(private h: VapiHandlers) {}
 
-  vapi.on("call-start", () => handlers.onListening?.());
+  get isRunning(): boolean {
+    return this.running;
+  }
 
-  vapi.on("message", (msg: any) => {
-    // We only care about the speaker's final transcript.
-    if (
-      msg?.type === "transcript" &&
-      msg.transcriptType === "final" &&
-      msg.role !== "assistant"
-    ) {
-      const text = String(msg.transcript ?? "").trim();
-      if (text) {
-        handlers.onTranscript(text);
-        vapi.stop(); // got the utterance — don't let the assistant respond
-      }
+  /** Start a call. Returns false (no-op) when creds are absent or start fails. */
+  async start(): Promise<boolean> {
+    const { VITE_VAPI_PUBLIC_KEY, VITE_VAPI_ASSISTANT_ID } = readEnv();
+    if (!VITE_VAPI_PUBLIC_KEY || !VITE_VAPI_ASSISTANT_ID) return false;
+    if (this.running) return true;
+
+    if (!this.vapi) {
+      const vapi = new Vapi(VITE_VAPI_PUBLIC_KEY);
+      vapi.on("call-start", () => {
+        // STT only: silence the assistant so the mic just transcribes (§4.1).
+        try {
+          vapi.send({ type: "control", control: "mute-assistant" });
+        } catch {
+          /* control may race call setup; transcripts still flow regardless */
+        }
+        this.h.onListening?.();
+      });
+      vapi.on("call-end", () => {
+        this.running = false;
+        this.h.onEnd?.();
+      });
+      vapi.on("error", (e) => {
+        this.running = false;
+        this.h.onError?.(e);
+      });
+      vapi.on("message", (m: { type?: string; role?: string; transcriptType?: string; transcript?: string }) => {
+        if (m?.type !== "transcript" || typeof m.transcript !== "string") return;
+        if (m.role && m.role !== "user") return; // only the human's speech
+        if (m.transcriptType === "final") this.h.onFinal(m.transcript);
+        else this.h.onPartial?.(m.transcript);
+      });
+      this.vapi = vapi;
     }
-  });
 
-  vapi.on("error", (err: unknown) => handlers.onError?.(err));
+    try {
+      await this.vapi.start(VITE_VAPI_ASSISTANT_ID);
+      this.running = true;
+      return true;
+    } catch (e) {
+      this.running = false;
+      this.h.onError?.(e);
+      return false;
+    }
+  }
 
-  return {
-    start: () =>
-      Promise.resolve(vapi.start(VITE_VAPI_ASSISTANT_ID!)).then(() => undefined),
-    stop: () => vapi.stop(),
-  };
+  /** Stop the active call (idempotent). */
+  stop(): void {
+    this.running = false;
+    this.vapi?.stop();
+  }
 }
