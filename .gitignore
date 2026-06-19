@@ -29,6 +29,8 @@ venv/
 .env
 .env.*
 *.local
+# …but the committed template carries no secrets (only a public GCS URL):
+!frontend/.env.example
 
 # Editor / OS
 .DS_Store
