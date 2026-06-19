@@ -41,7 +41,9 @@ export interface SMPLXModel {
   faces: Uint32Array; // (F*3)
 }
 
-const BASE = "./smplx";
+// Default to the bundled dev path; in prod set VITE_SMPLX_BASE to the public
+// smplx-model GCS URL (§7) so the 65MB assets aren't shipped with the bundle.
+const BASE = import.meta.env.VITE_SMPLX_BASE ?? "./smplx";
 
 export async function loadSMPLXModel(base = BASE): Promise<SMPLXModel> {
   const [header, buf] = await Promise.all([

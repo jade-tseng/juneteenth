@@ -17,5 +17,5 @@
   },
   "include": ["src", "vite.config.ts"],
   "comment_exclude": "check.ts is a dev/CI numeric harness using node: APIs; run with `npx tsx src/smplx/check.ts`, not part of the browser bundle.",
-  "exclude": ["src/smplx/check.ts"]
+  "exclude": ["src/smplx/check.ts", "src/smplx/integration.ts"]
 }
