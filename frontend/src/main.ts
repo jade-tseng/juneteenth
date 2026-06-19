@@ -5,7 +5,7 @@ import { Controls } from "./controls.ts";
 import { SignPlayer } from "./player.ts";
 import { DEMO_TIMELINE } from "./timeline.ts";
 import type { SignSentence, SMPLXSequence } from "./types.ts";
-import { tryStartVapi } from "./vapi.ts";
+import { initVapi, type VapiController } from "./vapi.ts";
 
 // signspace — Voice-to-ASL Signing Avatar (POC), frontend entry point.
 // Wires the luminous stage, the breathing caption, the glass controls, and a
@@ -33,6 +33,9 @@ let listenTimer = 0;
 let processTimer = 0;
 let lastSentences: SignSentence[] = [];
 let lastText = ""; // last phrase sent to the backend (for replay)
+// realInput is true on the real paths (Vapi transcript or typed text) so the
+// mock-pipeline timers in setState() stay off; false only for the no-Vapi mic.
+let realInput = false;
 
 const controls = new Controls({
   onMic: () => onMic(),
@@ -71,12 +74,16 @@ textForm?.addEventListener("submit", (e) => {
   requestSigningText(text);
 });
 
-// Vapi STT is scaffolded but gated behind creds (Phase 4). When unconfigured —
-// the default in this build — typed text is the path; the mic mock stays.
-tryStartVapi({
+// Vapi STT (W1). When VITE_VAPI_PUBLIC_KEY + VITE_VAPI_ASSISTANT_ID are set, the
+// mic opens a real transcription call and the final transcript drives
+// requestSigningText → POST /api/sign. Unconfigured → vapi is null and the mic
+// runs the mock pipeline; typed text always works.
+const vapi: VapiController | null = initVapi({
   onTranscript: (text) => requestSigningText(text),
   onListening: () => setState("listening"),
+  onError: () => showError(),
 });
+const vapiActive = vapi !== null;
 
 // ── state machine (§10) ──────────────────────────────────────────────────
 function setState(next: State) {
@@ -96,16 +103,23 @@ function setState(next: State) {
       controls.setProcessing(false);
       controls.showPlayback(false);
       caption.status("Listening…");
-      // simulate end-of-utterance detection (Vapi would emit the transcript)
-      listenTimer = window.setTimeout(() => setState("processing"), 1600);
+      // No Vapi: simulate end-of-utterance. With Vapi, the real final transcript
+      // drives the transition, so don't auto-advance.
+      if (!vapiActive) {
+        listenTimer = window.setTimeout(() => setState("processing"), 1600);
+      }
       break;
 
     case "processing":
       controls.setListening(false);
       controls.setProcessing(true);
       caption.status("Translating…");
-      // simulate gloss + lookup + blend round-trip, then sign the result
-      processTimer = window.setTimeout(() => requestSigning(), 850);
+      // Mock-pipeline only: simulate the gloss+lookup+blend round-trip then sign
+      // the cached script. On real input (Vapi/typed text), requestSigningText
+      // is already doing the fetch — don't fire the mock.
+      if (!realInput) {
+        processTimer = window.setTimeout(() => requestSigning(), 850);
+      }
       break;
 
     case "signing":
@@ -131,18 +145,32 @@ function onMic() {
     case "idle":
     case "ready":
     case "error":
-      setState("listening");
+      startListening();
       break;
     case "listening":
-      // tapping again "sends" early
-      setState("processing");
+      if (vapiActive) {
+        vapi!.stop(); // end the utterance; the final transcript routes onward
+      } else {
+        setState("processing"); // mock: tapping again "sends" early
+      }
       break;
     case "signing":
     case "processing":
-      // interrupt and listen again
-      player.stop();
-      setState("listening");
+      player.stop(); // interrupt and listen again
+      startListening();
       break;
+  }
+}
+
+// Open the mic: a real Vapi call when configured, else the mock pipeline.
+function startListening() {
+  if (vapiActive) {
+    realInput = true; // the transcript path is real — suppress mock timers
+    vapi!.start().catch(() => showError());
+    setState("listening"); // call-start will also confirm this
+  } else {
+    realInput = false; // mock mic drives the cached demo
+    setState("listening");
   }
 }
 
@@ -161,6 +189,7 @@ function requestSigning() {
 // unmatched-vocabulary UI; network/other errors → generic error copy. If the
 // SMPL-X mesh hasn't loaded yet, fall back to the cached gesture demo.
 async function requestSigningText(text: string) {
+  realInput = true; // real backend round-trip — keep the mock processing timer off
   lastText = text;
   lastSentences = [];
   setState("processing");

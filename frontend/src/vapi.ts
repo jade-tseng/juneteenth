@@ -1,19 +1,30 @@
-// Vapi STT scaffold (CLAUDE.md §4.1, W1) — STUB ONLY, gated behind creds.
+// Vapi STT integration (CLAUDE.md §4.1, W1).
 //
-// No Vapi credentials are available in this build, so this is intentionally a
-// no-op unless BOTH VITE_VAPI_PUBLIC_KEY and VITE_VAPI_ASSISTANT_ID are set at
-// build time. When they are absent (the default), tryStartVapi() returns false
-// immediately and typed text remains the trigger — nothing blocks on Vapi.
+// The browser uses the Vapi *public* key + an assistant id (both VITE_ env vars,
+// statically inlined by Vite at build time). The assistant is configured
+// transcription-only ("ASL Signing — STT only"); we consume final user
+// transcripts and forward them to POST /api/sign, then stop the call so the
+// assistant never speaks back.
 //
-// When creds exist, wire the @vapi-ai/web SDK here: start a call, listen for
-// final transcripts, and forward each to onTranscript (which the app routes to
-// POST /api/sign). The SDK is not a dependency yet; add it when enabling Vapi.
+// When the env vars are absent (e.g. a build without creds), initVapi() returns
+// null and the caller keeps the typed-text / mic-mock path — nothing breaks.
+
+import Vapi from "@vapi-ai/web";
 
 export interface VapiHandlers {
-  /** Called with each final STT transcript. */
+  /** Called with each final STT transcript (user speech). */
   onTranscript: (text: string) => void;
-  /** Optional: called when the mic opens, to flip the UI to "listening". */
+  /** Called when the mic call opens, to flip the UI to "listening". */
   onListening?: () => void;
+  /** Called on a Vapi error so the UI can recover. */
+  onError?: (err: unknown) => void;
+}
+
+export interface VapiController {
+  /** Open the mic and start a transcription call. */
+  start: () => Promise<void>;
+  /** End the call (also auto-called after a final transcript). */
+  stop: () => void;
 }
 
 interface VapiEnv {
@@ -22,7 +33,6 @@ interface VapiEnv {
 }
 
 function readEnv(): VapiEnv {
-  // import.meta.env is statically replaced by Vite at build time.
   const env = import.meta.env as unknown as VapiEnv;
   return {
     VITE_VAPI_PUBLIC_KEY: env.VITE_VAPI_PUBLIC_KEY,
@@ -36,25 +46,37 @@ export function vapiConfigured(): boolean {
 }
 
 /**
- * Initialize Vapi if (and only if) creds are present. Returns true when the
- * integration was started, false when gated off (the default) — callers keep
- * the typed-text path in that case.
+ * Build a Vapi controller if (and only if) creds are present; otherwise null.
+ * Registers transcript/listening/error listeners once.
  */
-export function tryStartVapi(_handlers: VapiHandlers): boolean {
-  if (!vapiConfigured()) {
-    // gated: no creds, no Vapi. Typed text drives the demo.
-    return false;
-  }
-  // ── enable path (not exercised without creds) ──────────────────────────────
-  // const { default: Vapi } = await import("@vapi-ai/web");
-  // const vapi = new Vapi(VITE_VAPI_PUBLIC_KEY!);
-  // vapi.on("call-start", () => _handlers.onListening?.());
-  // vapi.on("message", (m) => {
-  //   if (m.type === "transcript" && m.transcriptType === "final") {
-  //     _handlers.onTranscript(m.transcript);
-  //   }
-  // });
-  // vapi.start(VITE_VAPI_ASSISTANT_ID!);
-  console.info("[vapi] creds present but SDK not bundled in this build");
-  return false;
+export function initVapi(handlers: VapiHandlers): VapiController | null {
+  const { VITE_VAPI_PUBLIC_KEY, VITE_VAPI_ASSISTANT_ID } = readEnv();
+  if (!VITE_VAPI_PUBLIC_KEY || !VITE_VAPI_ASSISTANT_ID) return null;
+
+  const vapi = new Vapi(VITE_VAPI_PUBLIC_KEY);
+
+  vapi.on("call-start", () => handlers.onListening?.());
+
+  vapi.on("message", (msg: any) => {
+    // We only care about the speaker's final transcript.
+    if (
+      msg?.type === "transcript" &&
+      msg.transcriptType === "final" &&
+      msg.role !== "assistant"
+    ) {
+      const text = String(msg.transcript ?? "").trim();
+      if (text) {
+        handlers.onTranscript(text);
+        vapi.stop(); // got the utterance — don't let the assistant respond
+      }
+    }
+  });
+
+  vapi.on("error", (err: unknown) => handlers.onError?.(err));
+
+  return {
+    start: () =>
+      Promise.resolve(vapi.start(VITE_VAPI_ASSISTANT_ID!)).then(() => undefined),
+    stop: () => vapi.stop(),
+  };
 }
