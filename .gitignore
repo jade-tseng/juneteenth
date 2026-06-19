@@ -6,9 +6,16 @@ dist/
 build/
 
 # W6 dictionary: generated clips (regenerate with `build.py synth`; canonical
-# copies live in gs://…-dictionary/clips/) and extraction scratch
+# copies live in gs…-dictionary/clips/) and extraction scratch
 dictionary/clips/
 dictionary/.work/
+
+# Licensed SMPL-X model + large derived assets — NEVER commit (non-commercial
+# license, §11; large binaries). Live on disk only; served from gs…-smplx-model/.
+models/
+frontend/public/smplx/
+*.npz
+*.pkl
 
 # Python
 __pycache__/
